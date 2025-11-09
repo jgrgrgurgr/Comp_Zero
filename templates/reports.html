@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>타협제로 - 위험 정보 제보 및 확인</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="page-header">
+            <h1>위험 정보 제보 및 확인</h1>
+            <a href="/">&larr; 메인 페이지로 돌아가기</a>
+        </header>
+
+        <div class="report-section">
+            <h2>실시간 위험 제보</h2>
+            <p>경로 주변의 위험 요소를 제보해주세요. 데이터 분석에 큰 도움이 됩니다.</p>
+            <form id="report-form">
+                <div class="input-group">
+                    <label for="report-address">위치 (주소)</label>
+                    <input type="text" id="report-address" name="report_address" placeholder="예: 부산광역시 해운대구 우동 123" required>
+                </div>
+                <div class="input-group">
+                    <label for="report-description">위험 내용</label>
+                    <textarea id="report-description" name="report_description" rows="5" placeholder="예: 가로등이 고장나서 어두움, 도로 공사중" required></textarea>
+                </div>
+                <button type="submit">제보하기</button>
+            </form>
+            <div id="report-result" class="report-result-text"></div>
+        </div>
+
+        <hr>
+
+        <div class="report-list-section">
+            <h2>전체 제보 목록</h2>
+            <div id="report-list-container">
+                <p>제보 목록을 불러오는 중입니다...</p>
+            </div>
+        </div>
+    </div>
+    <script src="/static/reports.js"></script>
+</body>
+</html>
