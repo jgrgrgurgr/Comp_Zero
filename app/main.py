@@ -92,7 +92,7 @@ async def report_risk_endpoint(report: RiskReport):
     사용자로부터 실시간 위험 정보를 제보받아 저장합니다.
     """
     print(f"위험 정보 제보 수신: {report.address} - {report.description}")
-    result = services.save_risk_report(report)
+    result = services.save_risk_report(report.dict())
     if "error" in result:
         return JSONResponse(status_code=400, content={"message": result["error"]})
     return result

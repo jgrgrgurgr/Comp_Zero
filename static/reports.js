@@ -67,10 +67,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             reportResult.innerHTML = `<p style="color: green;"><strong>성공:</strong> ${result.message}</p>`;
-            reportForm.reset(); // 성공 시 입력 필드 초기화
-
-            // 제보 목록 새로고침
-            await loadReports();
+            
+            // 1초 후 폼을 리셋하고 목록을 새로고침하여 사용자 경험 개선
+            setTimeout(() => {
+                reportForm.reset();
+                loadReports();
+                reportResult.innerHTML = ''; // 성공 메시지 숨김
+            }, 1000);
 
         } catch (error) {
             console.error('Error reporting risk:', error);
