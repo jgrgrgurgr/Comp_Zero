@@ -157,16 +157,28 @@ class AccidentDataManager:
                     'locations': region_matches.head(3).to_dict('records')
                 })
         
-        # 총 위험도 (가중 평균)
-        total_risk = (
-            risk_data['pedestrian_risk'] * 2.0 +  # 보행자 사고 가중치 높음
-            risk_data['bicycle_risk'] * 1.5 +
-            risk_data['schoolzone_risk'] * 2.5 +   # 어린이보호구역 가중치 높음
-            risk_data['local_gov_risk'] * 1.0
-        ) / 7.0
+        # 총 위험도 (데이터 기반 가중 평균)
+        weights = {
+            'pedestrian': 2.5,    # 보행자 사고
+            'bicycle': 1.44,      # 자전거 사고
+            'schoolzone': 1.6,    # 스쿨존 사고
+            'local_gov': 1.68     # 지자체 사고
+        }
+        total_weight = sum(weights.values())
+
+        weighted_risk_sum = (
+            risk_data['pedestrian_risk'] * weights['pedestrian'] +
+            risk_data['bicycle_risk'] * weights['bicycle'] +
+            risk_data['schoolzone_risk'] * weights['schoolzone'] +
+            risk_data['local_gov_risk'] * weights['local_gov']
+        )
         
-        print(f"DEBUG: Calculated total_risk (raw): {total_risk}")
-        final_total_risk = min(int(total_risk), 100) # Max 100 for consistency
+        # 가중 평균 계산
+        total_risk = weighted_risk_sum / total_weight if total_weight > 0 else 0
+        
+        print(f"DEBUG: Calculated total_risk (raw weighted average): {total_risk}")
+        # 최종 점수를 100점 만점으로 스케일링 및 정수화
+        final_total_risk = min(int(total_risk), 100)
         print(f"DEBUG: Final total_risk (capped at 100): {final_total_risk}")
 
         return {
@@ -194,17 +206,16 @@ class AccidentDataManager:
         return None
     
     def _find_region_matches(self, df: pd.DataFrame, sido: str, gugun: str, dong: str = None) -> pd.DataFrame:
-        """데이터프레임에서 지역 매칭"""
-        print(f"DEBUG: _find_region_matches called for sido='{sido}', gugun='{gugun}', dong='{dong}'")
+        """데이터프레임에서 지역 매칭 (시/군/구 레벨)"""
+        print(f"DEBUG: _find_region_matches called for sido='{sido}', gugun='{gugun}' (dong ignored)")
         result = df.copy()
         
-        # 실제 컬럼명 찾기 (우선순위: 정확한 컬럼명 -> '시도시군구명' -> 부분 문자열)
+        # 실제 컬럼명 찾기
         found_sido_col = next((col for col in df.columns if col in ['시도명', '시도']), None)
         found_gugun_col = next((col for col in df.columns if col in ['시군구명', '시군구', '구군']), None)
-        found_dong_col = next((col for col in df.columns if col in ['읍면동명', '읍면동', '동', '법정동코드', '도로명']), None)
         found_sido_gugun_combined_col = next((col for col in df.columns if '시도시군구명' == col), None)
 
-        print(f"DEBUG: Identified columns: found_sido_col='{found_sido_col}', found_gugun_col='{found_gugun_col}', found_dong_col='{found_dong_col}', found_sido_gugun_combined_col='{found_sido_gugun_combined_col}'")
+        print(f"DEBUG: Identified columns: found_sido_col='{found_sido_col}', found_gugun_col='{found_gugun_col}', found_sido_gugun_combined_col='{found_sido_gugun_combined_col}'")
 
         # 1. 개별 시도, 시군구 컬럼이 명확히 분리되어 있는 경우
         if found_sido_col and found_gugun_col:
@@ -224,16 +235,12 @@ class AccidentDataManager:
             result = result[result[found_sido_gugun_combined_col].astype(str).str.contains(combined_search_str, regex=True, na=False)]
             print(f"DEBUG: After combined sido+gugun filter (col: {found_sido_gugun_combined_col}), len: {len(result)} (filtered from {initial_len})")
         
-        # 3. 동 매칭 (개별 컬럼 또는 combined_col 사용 후)
-        if found_dong_col and dong:
-            initial_len = len(result)
-            result = result[result[found_dong_col].astype(str).str.contains(dong, na=False)]
-            print(f"DEBUG: After dong filter (col: {found_dong_col}), len: {len(result)} (filtered from {initial_len})")
+        # 동(dong) 레벨 필터링은 정확도 문제로 비활성화됨
         
         return result
     
     def _calculate_risk_from_df(self, df: pd.DataFrame, data_type: str) -> int:
-        """데이터프레임에서 위험도 계산"""
+        """데이터프레임에서 기본 위험도(사고 건수 기반) 계산"""
         if df.empty:
             print(f"DEBUG: _calculate_risk_from_df for {data_type} received empty DataFrame.")
             return 0
@@ -245,22 +252,14 @@ class AccidentDataManager:
         if count_cols:
             # Ensure the count column is numeric, coercing errors to NaN then filling with 0
             total_count = df[count_cols[0]].apply(pd.to_numeric, errors='coerce').fillna(0).sum()
-            print(f"DEBUG: {data_type} total_count: {total_count}")
-            
-            # 데이터 타입별 가중치
-            weights = {
-                'pedestrian': 2.0,
-                'bicycle': 1.5,
-                'schoolzone': 2.5,
-                'local_gov': 1.0
-            }
-            
-            base_risk = total_count * weights.get(data_type, 1.0)
-            print(f"DEBUG: {data_type} base_risk (raw): {base_risk}")
-            return min(int(base_risk), 50) # Capped at 50 for individual data type risk
+            print(f"DEBUG: {data_type} total_count from column: {total_count}")
+            # 개별 위험도를 50으로 제한하여 특정 유형이 전체를 압도하는 것 방지
+            return min(int(total_count), 50)
         
-        print(f"DEBUG: No count columns found for {data_type}. Returning len(df) * 2.")
-        return len(df) * 2  # 건수 컬럼이 없으면 단순 개수
+        # 건수 컬럼이 없으면 단순 행의 개수를 사용
+        total_count = len(df)
+        print(f"DEBUG: No count columns found for {data_type}. Returning len(df): {total_count}")
+        return min(total_count * 2, 50) # 단순 개수일 경우 가중치를 약간 부여하고 50으로 제한
     
     def _calculate_risk_from_nearby(self, nearby_data: Dict) -> int:
         """주변 데이터에서 위험도 계산"""
@@ -365,14 +364,26 @@ class AccidentDataManager:
             local_gov_risk=('local_gov_risk', 'sum')
         ).reset_index()
 
-        # 최종 total_risk 재계산 (가중 평균)
-        grouped_regions['final_total_risk'] = (
-            grouped_regions['pedestrian_risk'] * 2.0 +
-            grouped_regions['bicycle_risk'] * 1.5 +
-            grouped_regions['schoolzone_risk'] * 2.5 +
-            grouped_regions['local_gov_risk'] * 1.0
-        ) / 7.0
-        grouped_regions['final_total_risk'] = grouped_regions['final_total_risk'].apply(lambda x: min(int(x), 50))
+        # 최종 total_risk 재계산 (데이터 기반 가중 평균)
+        weights = {
+            'pedestrian': 2.5,
+            'bicycle': 1.44,
+            'schoolzone': 1.6,
+            'local_gov': 1.68
+        }
+        total_weight = sum(weights.values())
+
+        if total_weight > 0:
+            grouped_regions['final_total_risk'] = (
+                grouped_regions['pedestrian_risk'] * weights['pedestrian'] +
+                grouped_regions['bicycle_risk'] * weights['bicycle'] +
+                grouped_regions['schoolzone_risk'] * weights['schoolzone'] +
+                grouped_regions['local_gov_risk'] * weights['local_gov']
+            ) / total_weight
+        else:
+            grouped_regions['final_total_risk'] = 0
+        
+        grouped_regions['final_total_risk'] = grouped_regions['final_total_risk'].apply(lambda x: min(int(x), 100))
 
 
         top_areas = grouped_regions.sort_values(by='final_total_risk', ascending=False).head(limit)

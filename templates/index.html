@@ -5,14 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>타협제로 - 안전 경로 탐색</title>
     <link rel="stylesheet" href="/static/style.css">
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey={{ kakao_js_key }}"></script>
 </head>
 <body>
     <div class="container">
         <header class="page-header">
             <h1>타협제로</h1>
-            <a href="/reports">위험 정보 제보 및 확인하기 &rarr;</a>
+            <nav class="header-nav">
+                <a href="/analysis">데이터 분석 리포트 보기</a>
+                <a href="/reports">위험 정보 제보 및 확인하기</a>
+            </nav>
         </header>
         <p>공공데이터를 활용하여 가장 안전한 보행 경로를 찾아드립니다.</p>
+        <div class="description-box">
+            <p><strong>어떻게 작동하나요?</strong><br>
+            입력하신 경로를 기반으로, 해당 지역의 과거 사고 데이터(경찰청 TAAS), 실시간 날씨, 시간대 등을 종합 분석하여 각 경로의 위험도를 계산합니다. 그 중 가장 안전한 경로를 '추천 경로'로 제안해 드립니다.
+            </p>
+        </div>
         <form id="route-form">
             <div class="input-group">
                 <label for="start-address">출발지</label>
@@ -27,11 +36,17 @@
         <div id="loading-indicator" style="display: none;">
             <p>경로를 분석 중입니다. 잠시만 기다려주세요...</p>
         </div>
+
+        <div id="map" style="width:100%;height:400px;margin-top:30px;display:none;border-radius: 5px; position: relative;">
+            <div id="map-legend" style="display: none;"></div>
+        </div>
+
         <div id="result-container" style="display: none;">
             <h2>분석 결과</h2>
             <div id="result-text"></div>
+            <div id="result-breakdown"></div>
         </div>
     </div>
-    <script src="/static/script.js"></script>
+    <script src="/static/script.js?v=1.1"></script>
 </body>
 </html>

@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import uvicorn
 from dotenv import load_dotenv # Added
+import os # Added
 
 load_dotenv() # Added
 
@@ -27,9 +28,10 @@ class RiskReport(BaseModel):
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     """
-    메인 페이지(index.html)를 렌더링합니다.
+    메인 페이지(index.html)를 렌더링하고, 지도 API 키를 전달합니다.
     """
-    return templates.TemplateResponse("index.html", {"request": request})
+    kakao_js_key = os.getenv("KAKAO_JS_KEY", "")
+    return templates.TemplateResponse("index.html", {"request": request, "kakao_js_key": kakao_js_key})
 
 @app.post("/calculate-risk")
 async def calculate_risk_endpoint(start_address: str = Form(...), end_address: str = Form(...)):
@@ -67,6 +69,15 @@ async def read_reports_page(request: Request):
     사용자 제보를 확인하고 새로 제보할 수 있는 페이지를 렌더링합니다.
     """
     return templates.TemplateResponse("reports.html", {"request": request})
+
+
+@app.get("/analysis", response_class=HTMLResponse)
+async def read_analysis_page(request: Request):
+    """
+    데이터 분석 리포트 페이지(analysis.html)를 렌더링합니다.
+    """
+    return templates.TemplateResponse("analysis.html", {"request": request})
+
 
 @app.get("/api/reports")
 async def get_all_reports():
